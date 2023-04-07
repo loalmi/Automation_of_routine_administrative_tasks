@@ -1,0 +1,74 @@
+import requests
+from bs4 import BeautifulSoup
+
+# Получаем HTML-страницу
+url = 'https://www.afisha.ru/movie/271472/reviews/'
+#print(url)
+response = requests.get(url)
+html = response.content
+
+# Создаем объект BeautifulSoup
+soup = BeautifulSoup(html, 'html.parser')
+#print(len(soup))
+
+# Находим нужные элементы страницы
+reviews = soup.find_all('li', {'class': 'lHiNF Np3_c'})
+#print(len(reviews))
+
+rat = []
+dat = []
+
+
+# Выводим результаты
+for review in reviews:
+    rating = review.find('span', {'class': 'nk8aV naF5F j3T41 Gfeb7 eqBUk C7rxt'}).text.strip()
+    rat.append(rating)
+    date = review.find('div', {'class': 'X6HuP nWkJW'}).text.strip()
+    dat.append(date)
+    #print('Rating:', rating)
+    #print('Date:', date)
+    #print('-' * 50)
+    
+# С первого сайта удалось взять только дату и рейтинг, но этого достаточно для первого шага
+# Теперь преобразуем данные в датафрэйм для удобного анализа
+#rat, dat
+df_all = pd.DataFrame({'date':dat, 'rating': rat})
+# сделаем столбец даты в читабельном формате
+months = {'января':'01','февраля':'02','марта':'03','апреля':'04','мая':'05','июня':'06','июля':'07','августа':'08', 'сентября':'09','октября':'10','ноября':'11','декабря':'12'}
+for i in range(len(df_all['date'])):
+    d = df_all['date'][i].split()
+    d[1] = months[d[1]]
+    df_all['date'][i] = '-'.join(d)
+#df_all['date'] = pd.to_datetime(df_all['date'])
+df_all['date'] = pd.DatetimeIndex(df_all['date'])
+# рейтинг из string в int
+df_all['rating'] = df_all['rating'].astype(int)
+
+
+# Выберите что хотите сделать
+def selection():
+    sel = {'Сортировать по дате':sort_date, 'Средний рейтинг общий': mean0,'Средний рейтинг по дате':m_date,'Средний рейтинг по месяцу':m_month}
+    def inp():
+        #s = input(print('\nВыберите что хотите сделать\nСортировать по дате\nСредний рейтинг общий\nСредний рейтинг по дате\nСредний рейтинг по месяцу\n'))
+        s = input(print('\nВыберите что хотите сделать\n'))
+
+        if s not in sel:
+            print('\nНет такой опции\nвыберите из списка :\n')
+            return inp()
+        return sel[s]
+    return inp()
+def sort_date():
+    return df_all['date'].sort_values()[:5]
+def mean0():
+    return round(df_all['rating'].mean(), 1)
+def m_date():
+    date = input(print('введите дату'))
+    return round(df_all[df_all['date'] == pd.DatetimeIndex(pd.Series([date]))[0]]['rating'].mean(), 1)
+def m_month():
+    m = int(input(print('введите месяц')))
+    return round(df_all[pd.DatetimeIndex(df_all['date']).month == m]['rating'].mean(), 1)
+
+
+print('\nВыберите что хотите сделать\nСортировать по дате\nСредний рейтинг общий\nСредний рейтинг по дате\nСредний рейтинг по месяцу\n')
+while True:
+    print(selection()())
